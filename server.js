@@ -295,15 +295,32 @@ function workerAuthRequired(req, res, next) {
   const token = header.startsWith('Bearer ') ? header.slice(7).trim() : header.trim();
 
   if (!token) {
-    return res.status(401).json({ error: 'Worker token requis.' });
+    return res.status(401).json({ error: 'Token requis.' });
   }
 
-  const worker = db
+  // Essayer d'abord avec le worker token
+  let worker = db
     .prepare('SELECT * FROM workers WHERE worker_token_hash = ?')
     .get(sha256(token));
 
   if (!worker) {
-    return res.status(401).json({ error: 'Worker token invalide.' });
+    // Essayer avec le token utilisateur
+    const user = db
+      .prepare('SELECT * FROM users WHERE token_hash = ?')
+      .get(sha256(token));
+
+    if (!user) {
+      return res.status(401).json({ error: 'Token invalide.' });
+    }
+
+    // Trouver le worker le plus récent de cet utilisateur
+    worker = db
+      .prepare('SELECT * FROM workers WHERE owner_id = ? ORDER BY updated_at DESC LIMIT 1')
+      .get(user.id);
+
+    if (!worker) {
+      return res.status(401).json({ error: 'Aucun worker associé à cet utilisateur.' });
+    }
   }
 
   req.worker = worker;
@@ -496,25 +513,40 @@ app.get('/api/workers/:id', authRequired, (req, res) => {
 });
 
 app.post('/api/workers/register', (req, res) => {
-  const workerToken = String(req.body.workerToken || '');
+  const userToken = String(req.body.userToken || '');
+  const workerName = String(req.body.workerName || '').trim();
   const status = req.body.status === 'busy' ? 'busy' : 'online';
   const metrics = req.body.metrics || {};
-  const worker = db
-    .prepare('SELECT * FROM workers WHERE worker_token_hash = ?')
-    .get(sha256(workerToken));
 
-  if (!worker) {
-    return res.status(401).json({ error: 'Worker token invalide.' });
+  const user = db
+    .prepare('SELECT * FROM users WHERE token_hash = ?')
+    .get(sha256(userToken));
+
+  if (!user) {
+    return res.status(401).json({ error: 'Token utilisateur invalide.' });
   }
 
-  db.prepare(`
-    UPDATE workers
-    SET status = ?, metrics = ?, last_seen = ?, updated_at = ?
-    WHERE id = ?
-  `).run(status, JSON.stringify(metrics), now(), now(), worker.id);
+  let worker = db
+    .prepare('SELECT * FROM workers WHERE owner_id = ? AND name = ?')
+    .get(user.id, workerName);
 
-  const updatedWorker = getWorker(worker.owner_id, worker.id);
-  broadcastUser(worker.owner_id, 'workers:update', getWorkers(worker.owner_id));
+  if (!worker) {
+    const id = randomUUID();
+    db.prepare(`
+      INSERT INTO workers (id, owner_id, name, url, worker_token_hash, status)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(id, user.id, workerName, '', sha256(randomToken('worker')), status);
+    worker = getWorker(user.id, id);
+  } else {
+    db.prepare(`
+      UPDATE workers
+      SET status = ?, metrics = ?, last_seen = ?, updated_at = ?
+      WHERE id = ?
+    `).run(status, JSON.stringify(metrics), now(), now(), worker.id);
+  }
+
+  const updatedWorker = getWorker(user.id, worker.id);
+  broadcastUser(user.id, 'workers:update', getWorkers(user.id));
 
   return res.json({
     ok: true,

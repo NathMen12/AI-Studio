@@ -8,11 +8,13 @@
   </head>
   <body>
     <header class="topbar">
-      <div>
+      <div class="topbar-left">
         <h1>AI Studio</h1>
-        <p>Studio d’entraînement IA multi-utilisateurs avec workers GPU connectés via ngrok.</p>
+        <p>Entraînement IA multi-utilisateurs avec workers GPU via ngrok.</p>
       </div>
-      <button id="logoutButton" class="button secondary hidden">Déconnexion</button>
+      <div class="topbar-actions">
+        <button id="logoutButton" class="button secondary hidden">Déconnexion</button>
+      </div>
     </header>
 
     <main>
@@ -91,16 +93,9 @@
               <button class="button primary" type="submit">Créer la machine</button>
             </form>
 
-            <div id="workerTokenBox" class="secret-box hidden">
-              <strong>Worker token généré</strong>
-              <p class="small">Copie ce token dans Google Colab ou sur ta machine GPU.</p>
-              <code id="workerTokenDisplay"></code>
-              <button id="copyWorkerTokenButton" class="button small" type="button">Copier</button>
-            </div>
-
             <div class="command-box">
               <strong>Commande Colab indicative</strong>
-              <pre id="colabCommand">python worker.py --server-url https://ton-space.hf.space --worker-token TON_WORKER_TOKEN</pre>
+              <pre id="colabCommand">python worker.py --server-url https://ton-space.hf.space --user-token TON_TOKEN_UTILISATEUR --worker-name "Ma Machine"</pre>
             </div>
           </section>
 

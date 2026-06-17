@@ -89,6 +89,14 @@ Pour Google Colab, installe aussi ngrok :
 pip install pyngrok
 ```
 
+### Token unique
+
+Il n'y a qu'**un seul token** à gérer : ton **token utilisateur**.
+Tu le trouves dans l'interface AI Studio, section **Profil**.
+Ce token sert à la fois :
+- te connecter à l'interface,
+- authentifier ton worker GPU.
+
 ### Exemple Google Colab
 
 ```python
@@ -100,12 +108,13 @@ public_url = ngrok.connect(8765).public_url
 print(public_url)
 ```
 
-Copie l’URL affichée dans l’interface AI Studio, puis lance le worker :
+Copie l'URL affichée dans l'interface AI Studio, puis lance le worker :
 
 ```bash
 python worker.py \
   --server-url https://ton-space.hf.space \
-  --worker-token TON_WORKER_TOKEN \
+  --user-token TON_TOKEN_UTILISATEUR \
+  --worker-name "Colab T4" \
   --ngrok-url https://xxxx-xxxx.ngrok-free.app \
   --port 8765
 ```
@@ -154,6 +163,8 @@ stanfordnlp/imdb
 .
 ├── package.json
 ├── server.js
+├── Dockerfile
+├── .dockerignore
 ├── public
 │   ├── index.html
 │   ├── style.css
@@ -177,6 +188,21 @@ Le notebook `Notebook/Colab_AI_Studio_Worker.ipynb` permet de lancer rapidement 
 3. exécuter les cellules dans l’ordre,
 4. copier l’URL ngrok si nécessaire,
 5. vérifier dans l’interface AI Studio que la machine est `online`.
+
+## Docker
+
+Le serveur peut aussi être lancé avec Docker :
+
+```bash
+docker build -t ai-studio .
+docker run -p 7860:7860 -v ai-studio-data:/app/data ai-studio
+```
+
+Le Dockerfile installe les outils nécessaires pour compiler `better-sqlite3`, copie le serveur et l’interface, puis démarre avec :
+
+```bash
+npm start
+```
 
 ## Notes importantes
 

@@ -1,0 +1,13 @@
+node_modules
+npm-debug.log
+.git
+.gitignore
+data
+Proxy
+Notebook
+worker
+__pycache__
+*.pyc
+.DS_Store
+.vscode
+.idea

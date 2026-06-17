@@ -591,28 +591,16 @@ $('addWorkerForm').addEventListener('submit', async (event) => {
       })
     });
 
-    $('workerTokenDisplay').textContent = data.workerToken;
-    $('workerTokenBox').classList.remove('hidden');
-
     const serverUrl = window.location.origin;
+    const userToken = state.token;
+    const workerName = $('workerName').value || 'GPU Worker';
     $('colabCommand').textContent =
-      `python worker.py --server-url ${serverUrl} --worker-token ${data.workerToken}`;
+      `python worker.py --server-url ${serverUrl} --user-token ${userToken} --worker-name "${workerName}"`;
 
     setMessage($('hfTokenMessage'), 'Machine créée. Lance le worker sur ta machine GPU.', 'success');
     await refreshWorkers();
   } catch (error) {
     setMessage($('hfTokenMessage'), error.message, 'error');
-  }
-});
-
-$('copyWorkerTokenButton').addEventListener('click', async () => {
-  const token = $('workerTokenDisplay').textContent;
-
-  try {
-    await navigator.clipboard.writeText(token);
-    setMessage($('hfTokenMessage'), 'Worker token copié.', 'success');
-  } catch {
-    setMessage($('hfTokenMessage'), 'Copie impossible. Sélectionne le token manuellement.', 'error');
   }
 });
 

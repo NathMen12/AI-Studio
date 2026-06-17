@@ -13,7 +13,7 @@ Pour l'entraînement Hugging Face:
   pip install torch transformers datasets peft accelerate evaluate scikit-learn
 
 Lancement exemple:
-  python worker.py --server-url https://ton-space.hf.space --worker-token TON_TOKEN --port 8765
+  python worker.py --server-url https://ton-space.hf.space --user-token TON_TOKEN --worker-name "Colab T4" --port 8765
 """
 
 import argparse
@@ -39,7 +39,8 @@ except Exception:
 
 STATE = {
     "server_url": "",
-    "worker_token": "",
+    "user_token": "",
+    "worker_name": "",
     "ngrok_url": "",
     "current_job": None,
     "stop_event": None,
@@ -85,7 +86,7 @@ def send_job_log(job_id, level, message, progress=None):
                 "message": message,
                 "progress": progress
             },
-            token=STATE["worker_token"],
+            token=STATE["user_token"],
             timeout=15
         )
     except Exception as exc:
@@ -101,7 +102,7 @@ def send_job_status(job_id, status, progress=None, error=None):
                 "progress": progress,
                 "error": error
             },
-            token=STATE["worker_token"],
+            token=STATE["user_token"],
             timeout=20
         )
     except Exception as exc:
@@ -190,6 +191,7 @@ def get_gpu_metrics():
 def get_metrics():
     metrics = {
         "worker_url": STATE["ngrok_url"],
+        "worker_name": STATE["worker_name"],
         "uptime_seconds": int(time.time() - STATE["started_at"]),
         "current_job": STATE["current_job"],
         "python_version": sys.version.split()[0]
@@ -230,7 +232,8 @@ def register_worker():
         post_json(
             "/api/workers/register",
             {
-                "workerToken": STATE["worker_token"],
+                "userToken": STATE["user_token"],
+                "workerName": STATE["worker_name"],
                 "status": "busy" if current_job else "online",
                 "metrics": get_metrics()
             },
@@ -331,6 +334,7 @@ class WorkerHandler(BaseHTTPRequestHandler):
                 "current_job": current_job,
                 "stop_requested": stop_requested,
                 "ngrok_url": STATE["ngrok_url"],
+                "worker_name": STATE["worker_name"],
                 "metrics": get_metrics()
             })
             return
@@ -386,7 +390,8 @@ class WorkerHandler(BaseHTTPRequestHandler):
 def parse_args():
     parser = argparse.ArgumentParser(description="AI Studio GPU Worker")
     parser.add_argument("--server-url", required=True, help="URL du serveur AI Studio, par exemple https://ton-space.hf.space")
-    parser.add_argument("--worker-token", required=True, help="Worker token généré dans l'interface")
+    parser.add_argument("--user-token", required=True, help="Token utilisateur pour s'authentifier auprès du serveur")
+    parser.add_argument("--worker-name", default="GPU Worker", help="Nom de la machine worker")
     parser.add_argument("--ngrok-url", default="", help="URL publique ngrok, utile pour l'affichage et le diagnostic")
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=8765)
@@ -397,7 +402,8 @@ def parse_args():
 def main():
     args = parse_args()
     STATE["server_url"] = args.server_url.rstrip("/")
-    STATE["worker_token"] = args.worker_token
+    STATE["user_token"] = args.user_token
+    STATE["worker_name"] = args.worker_name
     STATE["ngrok_url"] = args.ngrok_url
 
     def shutdown(signum, frame):
@@ -422,6 +428,7 @@ def main():
     global server
     server = ThreadingHTTPServer((args.host, args.port), WorkerHandler)
     log(f"Worker HTTP démarré sur {args.host}:{args.port}")
+    log(f"Worker name: {STATE['worker_name']}")
     log("Le serveur Space doit utiliser l'URL ngrok enregistrée dans l'interface.")
     server.serve_forever()
 
