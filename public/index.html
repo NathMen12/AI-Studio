@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI Studio - Entraînement IA distribué</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1>AI Studio</h1>
+        <p>Studio d’entraînement IA multi-utilisateurs avec workers GPU connectés via ngrok.</p>
+      </div>
+      <button id="logoutButton" class="button secondary hidden">Déconnexion</button>
+    </header>
+
+    <main>
+      <section id="authPanel" class="auth-layout">
+        <div class="card auth-card">
+          <h2>Connexion</h2>
+          <form id="loginForm" class="stack">
+            <label>
+              Nom d’utilisateur
+              <input id="loginUsername" type="text" autocomplete="username" placeholder="exemple: alice" />
+            </label>
+            <label>
+              Mot de passe
+              <input id="loginPassword" type="password" autocomplete="current-password" placeholder="••••••••" />
+            </label>
+            <button class="button primary" type="submit">Se connecter</button>
+            <p id="loginMessage" class="message"></p>
+          </form>
+
+          <hr />
+
+          <h2>Créer un compte</h2>
+          <form id="registerForm" class="stack">
+            <label>
+              Nom d’utilisateur
+              <input id="registerUsername" type="text" autocomplete="username" placeholder="exemple: alice" />
+            </label>
+            <label>
+              Mot de passe
+              <input id="registerPassword" type="password" autocomplete="new-password" placeholder="••••••••" />
+            </label>
+            <button class="button primary" type="submit">Créer le compte</button>
+            <p id="registerMessage" class="message"></p>
+          </form>
+        </div>
+      </section>
+
+      <section id="appPanel" class="hidden">
+        <div class="dashboard-grid">
+          <section class="card">
+            <h2>Profil</h2>
+            <p id="profileText" class="muted"></p>
+            <label class="stack">
+              Token utilisateur
+              <input id="userTokenDisplay" readonly />
+            </label>
+            <p class="small">
+              Ce token sert à connecter ton worker GPU. Ne le partage pas.
+            </p>
+
+            <hr />
+
+            <h3>Token Hugging Face</h3>
+            <label class="stack">
+              Token HF privé/gated
+              <input id="hfTokenInput" type="password" placeholder="hf_..." />
+            </label>
+            <div class="row">
+              <button id="saveHfTokenButton" class="button primary" type="button">Enregistrer le token HF</button>
+              <button id="clearHfTokenButton" class="button secondary" type="button">Supprimer</button>
+            </div>
+            <p id="hfTokenMessage" class="message"></p>
+          </section>
+
+          <section class="card">
+            <h2>Ajouter une machine GPU</h2>
+            <form id="addWorkerForm" class="stack">
+              <label>
+                Nom de la machine
+                <input id="workerName" type="text" placeholder="Colab T4 01" />
+              </label>
+              <label>
+                URL ngrok du worker
+                <input id="workerUrl" type="url" placeholder="https://xxxx-xxxx.ngrok-free.app" />
+              </label>
+              <button class="button primary" type="submit">Créer la machine</button>
+            </form>
+
+            <div id="workerTokenBox" class="secret-box hidden">
+              <strong>Worker token généré</strong>
+              <p class="small">Copie ce token dans Google Colab ou sur ta machine GPU.</p>
+              <code id="workerTokenDisplay"></code>
+              <button id="copyWorkerTokenButton" class="button small" type="button">Copier</button>
+            </div>
+
+            <div class="command-box">
+              <strong>Commande Colab indicative</strong>
+              <pre id="colabCommand">python worker.py --server-url https://ton-space.hf.space --worker-token TON_WORKER_TOKEN</pre>
+            </div>
+          </section>
+
+          <section class="card wide">
+            <div class="section-title">
+              <h2>Machines GPU</h2>
+              <button id="refreshWorkersButton" class="button small" type="button">Rafraîchir</button>
+            </div>
+            <div id="workersList" class="cards-list"></div>
+          </section>
+
+          <section class="card wide">
+            <h2>Rechercher sur Hugging Face</h2>
+            <form id="hfSearchForm" class="inline-form">
+              <select id="hfSearchType">
+                <option value="model">Modèles</option>
+                <option value="dataset">Datasets</option>
+              </select>
+              <input id="hfSearchQuery" type="search" placeholder="Exemple: SmolLM2, Alpaca, imdb..." />
+              <button class="button primary" type="submit">Rechercher</button>
+            </form>
+            <p id="hfSearchMessage" class="message"></p>
+            <div id="hfResults" class="results-grid"></div>
+          </section>
+
+          <section class="card wide">
+            <h2>Lancer un entraînement</h2>
+            <form id="jobForm" class="form-grid">
+              <label>
+                Machine GPU
+                <select id="jobWorkerId" required></select>
+              </label>
+
+              <label>
+                Modèle Hugging Face
+                <input id="jobModel" type="text" placeholder="HuggingFaceTB/SmolLM2-135M-Instruct" required />
+              </label>
+
+              <label>
+                Dataset Hugging Face
+                <input id="jobDataset" type="text" placeholder="HuggingFaceFW/fineweb-edu-dedup" required />
+              </label>
+
+              <label>
+                Tâche
+                <select id="jobTask">
+                  <option value="text-generation">Text generation / continuation</option>
+                  <option value="instruction-tuning">Instruction tuning</option>
+                  <option value="text-classification">Classification texte</option>
+                </select>
+              </label>
+
+              <label>
+                Repository de sortie HF
+                <input id="jobOutputRepo" type="text" placeholder="ton-user/mon-modele-finetune" />
+              </label>
+
+              <label class="checkbox-label">
+                <input id="jobPushToHf" type="checkbox" />
+                Pousser le modèle vers Hugging Face
+              </label>
+
+              <label>
+                Epochs
+                <input id="jobEpochs" type="number" min="1" max="100" value="3" />
+              </label>
+
+              <label>
+                Batch size
+                <input id="jobBatchSize" type="number" min="1" max="128" value="2" />
+              </label>
+
+              <label>
+                Learning rate
+                <input id="jobLearningRate" type="number" step="0.000001" min="0.000001" max="0.01" value="0.0002" />
+              </label>
+
+              <label>
+                Max sequence length
+                <input id="jobMaxSeqLength" type="number" min="64" max="8192" value="512" />
+              </label>
+
+              <label>
+                LoRA rank
+                <input id="jobLoraRank" type="number" min="1" max="256" value="16" />
+              </label>
+
+              <label>
+                LoRA alpha
+                <input id="jobLoraAlpha" type="number" min="1" max="512" value="32" />
+              </label>
+
+              <label>
+                Gradient accumulation steps
+                <input id="jobGradientAccumulationSteps" type="number" min="1" max="256" value="1" />
+              </label>
+
+              <label>
+                Warmup ratio
+                <input id="jobWarmupRatio" type="number" step="0.01" min="0" max="0.5" value="0.03" />
+              </label>
+
+              <label>
+                Weight decay
+                <input id="jobWeightDecay" type="number" step="0.01" min="0" max="1" value="0" />
+              </label>
+
+              <label>
+                Logging steps
+                <input id="jobLoggingSteps" type="number" min="1" max="1000" value="10" />
+              </label>
+            </form>
+
+            <div class="row">
+              <button id="startJobButton" class="button primary" type="button">Lancer l’entraînement</button>
+              <p id="jobMessage" class="message"></p>
+            </div>
+          </section>
+
+          <section class="card wide">
+            <div class="section-title">
+              <h2>Jobs</h2>
+              <button id="refreshJobsButton" class="button small" type="button">Rafraîchir</button>
+            </div>
+            <div id="jobsList" class="table-wrap"></div>
+          </section>
+
+          <section class="card wide">
+            <div class="section-title">
+              <h2>Logs en direct</h2>
+              <button id="clearLogsButton" class="button small" type="button">Vider</button>
+            </div>
+            <pre id="logsOutput" class="logs"></pre>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>
