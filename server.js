@@ -106,6 +106,12 @@ app.use(cors());
 app.use(express.json({ limit: '5mb' }));
 app.use(express.static(PUBLIC_DIR));
 
+// Permissions-Policy permissif pour éviter les warnings navigateur
+app.use((req, res, next) => {
+  res.setHeader('Permissions-Policy', 'accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()');
+  next();
+});
+
 function now() {
   return new Date().toISOString();
 }
@@ -515,6 +521,7 @@ app.get('/api/workers/:id', authRequired, (req, res) => {
 app.post('/api/workers/register', (req, res) => {
   const userToken = String(req.body.userToken || '');
   const workerName = String(req.body.workerName || '').trim();
+  const ngrokUrl = normalizeUrl(req.body.ngrokUrl || req.body.workerUrl || '');
   const status = req.body.status === 'busy' ? 'busy' : 'online';
   const metrics = req.body.metrics || {};
 
@@ -535,14 +542,19 @@ app.post('/api/workers/register', (req, res) => {
     db.prepare(`
       INSERT INTO workers (id, owner_id, name, url, worker_token_hash, status)
       VALUES (?, ?, ?, ?, ?, ?)
-    `).run(id, user.id, workerName, '', sha256(randomToken('worker')), status);
+    `).run(id, user.id, workerName, ngrokUrl, sha256(randomToken('worker')), status);
     worker = getWorker(user.id, id);
   } else {
-    db.prepare(`
-      UPDATE workers
-      SET status = ?, metrics = ?, last_seen = ?, updated_at = ?
-      WHERE id = ?
-    `).run(status, JSON.stringify(metrics), now(), now(), worker.id);
+    const updates = ['status = ?', 'metrics = ?', 'last_seen = ?', 'updated_at = ?'];
+    const params = [status, JSON.stringify(metrics), now(), now()];
+
+    if (ngrokUrl) {
+      updates.push('url = ?');
+      params.push(ngrokUrl);
+    }
+
+    params.push(worker.id);
+    db.prepare(`UPDATE workers SET ${updates.join(', ')} WHERE id = ?`).run(...params);
   }
 
   const updatedWorker = getWorker(user.id, worker.id);

@@ -234,6 +234,7 @@ def register_worker():
             {
                 "userToken": STATE["user_token"],
                 "workerName": STATE["worker_name"],
+                "ngrokUrl": STATE["ngrok_url"],
                 "status": "busy" if current_job else "online",
                 "metrics": get_metrics()
             },
